@@ -14,9 +14,9 @@ require 'optim'
 opt = {}
 opt.cv = 10
 opt.hiddenSize = 100
-opt.batchSize = 64
+opt.batchSize = 200
 opt.learningRate = .001
-opt.maxEpoch = 50
+opt.maxEpoch = 5
 opt.cuda = true
 torch.manualSeed(123)
 
@@ -51,7 +51,7 @@ end
 idx_train, idx_val = cv(MR.nSample, opt.cv)  -- 10-fold cross validation
 
 -- Model definition
-rnnModule = nn.GRU(opt.hiddenSize, opt.hiddenSize, nil, .25):maskZero(1)
+rnnModule = nn.GRU(opt.hiddenSize, opt.hiddenSize, nil, .25, true):maskZero(1)
 model = nn.Sequential()
    :add(nn.LookupTableMaskZero(MR.nVocabulary, opt.hiddenSize))
    :add(nn.SplitTable(2))
@@ -76,12 +76,14 @@ function JDJ(_w)
    J = criterion:forward(output, y)
    local dy = criterion:backward(output, y)
    model:backward(X, dy)
-   dw:clamp(-10,10)
+   dw:clamp(-10,10)  -- Pascanu et al., 2013
    return J,dw
 end
 
-function evaluate(X,y)
-   model:evaluate()
+function evaluate(k)
+   local X = MR.X:index(1,idx_val[k])
+   local y = MR.y:index(1,idx_val[k])
+   model:evaluate()  -- for dropout
    output = model:forward(X)
    _max,pred = torch.max(output,2)
    local diff = pred-y:resizeAs(pred)
@@ -90,18 +92,17 @@ function evaluate(X,y)
    return #torch.find(diff, 0) / y:nElement()
 end
 
-local config={}
-config.learningRate=opt.learningRate
-config.maxIter=opt.maxEpoch
-config.update_grad_per_n_batches=1
+
 nSample = idx_train:size(2)
 
 for k=1,opt.cv do
-   w:uniform(-.08,.08)  -- init
+   local config={}
+   config.learningRate=opt.learningRate
+   config.maxIter=opt.maxEpoch
+   config.update_grad_per_n_batches=1
+   w:uniform(-.08,.08)  -- initialize parameters
    config.winit = w
-   local X_test = MR.X:index(1,idx_val[k])
-   local y_test = MR.y:index(1,idx_val[k])
-   local accuracy = evaluate(X_test, y_test)
+   local accuracy = evaluate(k)
    print(string.format('CV-%d Accuracy = %.2f', k, accuracy))
    for epoch=1,opt.maxEpoch do
       for i=1,nSample,opt.batchSize do
@@ -112,13 +113,11 @@ for k=1,opt.cv do
          optim.adam(JDJ, config.winit, config)
       end
       xlua.progress(nSample, nSample)  -- done
-      print(string.format('Epoch#%2d\tJ = ', epoch), J)
-      local X_test = MR.X:index(1,idx_val[k])
-      local y_test = MR.y:index(1,idx_val[k])
-      local accuracy = evaluate(X_test, y_test)
-      print(string.format('CV-%d Accuracy = %.2f', k, accuracy))
+      print(string.format('Epoch#%2d\tlearningRate = ', epoch), config.learningRate, 
+            ', J = ', J)
+      local accuracy = evaluate(k)
+      print(string.format('CV-%d Accuracy = %.4f', k, accuracy))
       collectgarbage()
-      if 0 == epoch % 15 then config.learningRate = config.learningRate / 2 end
+      if 0 == epoch % 2 then config.learningRate = config.learningRate / 2 end
    end
-   break
 end

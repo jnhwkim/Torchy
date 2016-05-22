@@ -11,6 +11,7 @@
 if not opt then opt = {} end
 opt.data_path = 'rt-polaritydata/rt-polarity'
 opt.types = {'pos','neg'}
+torch.manualSeed(123)
 
 -- Dataset
 local rtp = {}
@@ -64,8 +65,10 @@ for _idx,t in pairs(opt.types) do
 		i = i + 1
 		local tokens = line:split(' ')
 		for j,w in pairs(tokens) do
+			if j > rtp.max_length then break end
 			local widx = rtp.word_to_idx[w]
-			rtp.X[i][rtp.max_length+j-#tokens] = widx  -- right-aligned population
+			local nTokens = math.min(rtp.max_length, #tokens)
+			rtp.X[i][rtp.max_length+j-nTokens] = widx  -- right-aligned population
 		end
 	end
 	f:close()
@@ -76,10 +79,6 @@ collectgarbage()
 print('\nTensor Information:')
 require 'torchx'  -- provides `find`
 print('zero ratio = ', #torch.find(rtp.X, 0)/rtp.X:nElement())
-
--- Save results
-print('\nSave results as t7 file..')
-torch.save('rtp.t7', rtp)
 
 print('\nMovie Review Dataset loaded.\n')
 
