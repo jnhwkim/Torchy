@@ -13,11 +13,11 @@ require 'optim'
 -- Training Options
 opt = {}
 opt.cv = 10
-opt.hiddenSize = 100
-opt.batchSize = 200
+opt.hiddenSize = 80
+opt.batchSize = 64
 opt.learningRate = .001
 opt.maxEpoch = 5
-opt.cuda = true
+opt.cuda = false
 torch.manualSeed(123)
 
 if opt.cuda then 

@@ -21,6 +21,7 @@ rtp.word_freq = {}
 rtp.nVocabulary = 0
 rtp.nSample = 0
 rtp.max_length = -1
+rtp.limit = 5000
 
 print('Build vocabulary table..')
 for _idx,t in pairs(opt.types) do
@@ -42,6 +43,7 @@ for _idx,t in pairs(opt.types) do
 			end
 			rtp.word_freq[w] = wfreq and wfreq + 1 or 1
 		end
+		if 0 == rtp.nSample % (rtp.limit/2) then break end
 	end
 	f:close()
 end
@@ -70,6 +72,7 @@ for _idx,t in pairs(opt.types) do
 			local nTokens = math.min(rtp.max_length, #tokens)
 			rtp.X[i][rtp.max_length+j-nTokens] = widx  -- right-aligned population
 		end
+		if 0 == i % (rtp.limit/2) then break end
 	end
 	f:close()
 end
