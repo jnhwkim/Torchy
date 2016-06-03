@@ -67,7 +67,9 @@ if opt.cuda then
    model = model:cuda()
    criterion = criterion:cuda()
 end
+
 w,dw = model:getParameters()
+nSample = idx_train:size(2)
 
 function JDJ(_w)
    w:copy(_w)
@@ -91,9 +93,6 @@ function evaluate(k)
    model:training()
    return #torch.find(diff, 0) / y:nElement()
 end
-
-
-nSample = idx_train:size(2)
 
 for k=1,opt.cv do
    local config={}
